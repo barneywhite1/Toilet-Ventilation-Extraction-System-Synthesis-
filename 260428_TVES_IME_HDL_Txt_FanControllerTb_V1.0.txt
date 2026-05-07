@@ -1,0 +1,137 @@
+`timescale 1ns/1ps
+
+module fanController_tb;
+
+    // Inputs
+    logic Clock;
+    logic Reset;
+    logic AirQualityBad;
+    logic HumidityHigh;
+    logic OccupancyDetected;
+    logic ForceOff;
+    logic SpeedUp;
+    logic SpeedDown;
+    logic ReturnToAuto;
+
+    // Outputs
+    logic [1:0] FanSpeed;
+    logic       IsManual;
+
+    // Instantiate DUT (Device Under Test)
+    fanController DUT
+    (
+        .Clock             (Clock),
+        .Reset             (Reset),
+        .AirQualityBad     (AirQualityBad),
+        .HumidityHigh      (HumidityHigh),
+        .OccupancyDetected (OccupancyDetected),
+        .ForceOff          (ForceOff),
+        .SpeedUp           (SpeedUp),
+        .SpeedDown         (SpeedDown),
+        .ReturnToAuto      (ReturnToAuto),
+        .FanSpeed          (FanSpeed),
+        .IsManual          (IsManual)
+    );
+
+    // Clock generation: 10ns period
+    initial Clock = 0;
+    always #5 Clock = ~Clock;
+
+    // Helper task for a single clock pulse
+    task tick;
+        @(posedge Clock);
+        #1;
+    endtask
+
+    initial
+    begin
+        // Initialise all inputs
+        Reset             = 0;
+        AirQualityBad     = 0;
+        HumidityHigh      = 0;
+        OccupancyDetected = 0;
+        ForceOff          = 0;
+        SpeedUp           = 0;
+        SpeedDown         = 0;
+        ReturnToAuto      = 0; 
+		  // Reset pulse to initialise registers
+		  Reset = 1;
+		  tick;
+		  tick;
+		  Reset = 0;
+		  tick;
+
+        // ---- TEST 1: No sensors, expect speed 0 ----
+        $display("TEST 1: No sensors active");
+        tick;
+        assert (FanSpeed == 2'd0) 
+            else $error("FAIL T1: Expected 0, got %0d", FanSpeed);
+        $display("FanSpeed = %0d (expected 0)", FanSpeed);
+
+        // ---- TEST 2: One sensor, expect speed 1 ----
+        $display("TEST 2: One sensor (AirQualityBad)");
+        AirQualityBad = 1;
+        tick;
+        assert (FanSpeed == 2'd1) 
+            else $error("FAIL T2: Expected 1, got %0d", FanSpeed);
+        $display("FanSpeed = %0d (expected 1)", FanSpeed);
+
+        // ---- TEST 3: Two sensors, expect speed 2 ----
+        $display("TEST 3: Two sensors (AirQualityBad + HumidityHigh)");
+        HumidityHigh = 1;
+        tick;
+        assert (FanSpeed == 2'd2) 
+            else $error("FAIL T3: Expected 2, got %0d", FanSpeed);
+        $display("FanSpeed = %0d (expected 2)", FanSpeed);
+
+        // ---- TEST 4: All sensors, expect speed 3 ----
+        $display("TEST 4: All sensors active");
+        OccupancyDetected = 1;
+        tick;
+        assert (FanSpeed == 2'd3) 
+            else $error("FAIL T4: Expected 3, got %0d", FanSpeed);
+        $display("FanSpeed = %0d (expected 3)", FanSpeed);
+
+        // ---- TEST 5: Force off overrides all sensors ----
+        $display("TEST 5: Force off with all sensors active");
+        ForceOff = 1;
+        tick;
+        assert (FanSpeed == 2'd0) 
+            else $error("FAIL T5: Expected 0, got %0d", FanSpeed);
+        $display("FanSpeed = %0d (expected 0)", FanSpeed);
+        ForceOff = 0;
+
+        // ---- TEST 6: SpeedUp enters manual mode ----
+        $display("TEST 6: SpeedUp x2 enters manual, speed should be 2");
+        AirQualityBad     = 0;
+        HumidityHigh      = 0;
+        OccupancyDetected = 0;
+        SpeedUp = 1; tick; SpeedUp = 0; tick; // speed 1
+        SpeedUp = 1; tick; SpeedUp = 0; tick; // speed 2
+        assert (IsManual == 1'b1) 
+            else $error("FAIL T6a: Expected manual mode");
+        assert (FanSpeed == 2'd2) 
+            else $error("FAIL T6b: Expected 2, got %0d", FanSpeed);
+        $display("IsManual = %0d, FanSpeed = %0d (expected 1, 2)", IsManual, FanSpeed);
+
+        // ---- TEST 7: SpeedDown decrements ----
+        $display("TEST 7: SpeedDown, speed should drop to 1");
+        SpeedDown = 1; tick; SpeedDown = 0; tick;
+        assert (FanSpeed == 2'd1) 
+            else $error("FAIL T7: Expected 1, got %0d", FanSpeed);
+        $display("FanSpeed = %0d (expected 1)", FanSpeed);
+
+        // ---- TEST 8: ReturnToAuto restores auto mode ----
+        $display("TEST 8: ReturnToAuto, sensors off so speed should be 0");
+        ReturnToAuto = 1; tick; ReturnToAuto = 0; tick;
+        assert (IsManual == 1'b0) 
+            else $error("FAIL T8a: Expected auto mode");
+        assert (FanSpeed == 2'd0) 
+            else $error("FAIL T8b: Expected 0, got %0d", FanSpeed);
+        $display("IsManual = %0d, FanSpeed = %0d (expected 0, 0)", IsManual, FanSpeed);
+
+        $display("All tests complete.");
+        $stop;
+    end
+
+endmodule

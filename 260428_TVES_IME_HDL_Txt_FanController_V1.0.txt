@@ -1,0 +1,66 @@
+// Bathroom Fan Controller - Auto/Manual Mode
+// Auto mode: sensors determine speed
+// Manual mode: KEY[1]/KEY[2] adjust speed up/down
+// KEY[3]: return to auto mode at any time 
+// KEY[0]: represents the system clock for using the keys 
+module fanController
+(
+    input  logic       Clock,
+    input  logic       Reset,
+    input  logic       AirQualityBad,     // SW[0]
+    input  logic       HumidityHigh,      // SW[1]
+    input  logic       OccupancyDetected, // SW[2]
+    input  logic       ForceOff,          // SW[3]
+    input  logic       SpeedUp,           // KEY[1]
+    input  logic       SpeedDown,         // KEY[2]
+    input  logic       ReturnToAuto,      // KEY[3]
+    output logic [1:0] FanSpeed,
+    output logic       IsManual
+);
+
+    logic [1:0] autoSpeed;
+    logic [1:0] manualSpeed;
+    logic       manual;
+
+    // Auto speed - priority encoder based on sensor combination
+    always_comb
+    begin
+        if (ForceOff)
+            autoSpeed = 2'd0;
+        else
+            case ({AirQualityBad, HumidityHigh, OccupancyDetected}) 
+					 3'b000: autoSpeed = 2'd0; // no sensors: OFF
+                3'b000: autoSpeed = 2'd1; // idle, fan always ticks over
+                3'b001, 3'b010, 3'b100: autoSpeed = 2'd1; // one sensor: LOW
+                3'b011, 3'b101, 3'b110: autoSpeed = 2'd2; // two sensors: HIGH
+                3'b111: autoSpeed = 2'd3; // all sensors: BOOST
+                default: autoSpeed = 2'd1; //fan defaults to low speed 
+            endcase
+    end
+
+    // Sequential: track manual mode and speed register
+    always_ff @(posedge Clock)
+    begin
+        if (Reset)
+        begin
+            manual      <= 1'b0;
+            manualSpeed <= 2'd1;
+        end
+        else if (ReturnToAuto)
+        begin
+            manual <= 1'b0;
+        end
+        else if (SpeedUp || SpeedDown)
+        begin
+            manual <= 1'b1; // pressing either key enters manual mode
+            if (SpeedUp && manualSpeed < 2'd3)
+                manualSpeed <= manualSpeed + 2'd1;
+            else if (SpeedDown && manualSpeed > 2'd0)
+                manualSpeed <= manualSpeed - 2'd1;
+        end
+    end
+
+    assign FanSpeed = manual ? manualSpeed : autoSpeed;
+    assign IsManual = manual;
+
+endmodule
