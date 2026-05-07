@@ -37,8 +37,11 @@ default: autoSpeed = 2'd1; // default to low speed
             endcase
     end
 
-    // Sequential: track manual mode and speed register
-    always_ff @(posedge Clock)
+    // Sequential logic: tracks manual mode state and speed register
+	// Manual mode is entered when SpeedUp or SpeedDown is pressed
+	// ReturnToAuto overrides manual mode at any time (priority behaviour)
+	// Reset initialises fan to automatic mode at low speed (2'd1)
+		always_ff @(posedge Clock)
     begin
         if (Reset)
         begin
