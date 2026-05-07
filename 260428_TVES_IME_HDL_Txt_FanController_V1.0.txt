@@ -29,12 +29,11 @@ module fanController
             autoSpeed = 2'd0;
         else
             case ({AirQualityBad, HumidityHigh, OccupancyDetected}) 
-					 3'b000: autoSpeed = 2'd0; // no sensors: OFF
-                3'b000: autoSpeed = 2'd1; // idle, fan always ticks over
-                3'b001, 3'b010, 3'b100: autoSpeed = 2'd1; // one sensor: LOW
-                3'b011, 3'b101, 3'b110: autoSpeed = 2'd2; // two sensors: HIGH
-                3'b111: autoSpeed = 2'd3; // all sensors: BOOST
-                default: autoSpeed = 2'd1; //fan defaults to low speed 
+				3'b000: autoSpeed = 2'd0; // no sensors active: fan OFF
+				3'b001, 3'b010, 3'b100: autoSpeed = 2'd1; // one sensor: LOW
+				3'b011, 3'b101, 3'b110: autoSpeed = 2'd2; // two sensors: HIGH
+				3'b111: autoSpeed = 2'd3; // all sensors: BOOST
+default: autoSpeed = 2'd1; // default to low speed
             endcase
     end
 
